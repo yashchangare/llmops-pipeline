@@ -1,0 +1,27 @@
+[
+  {
+    "question": "What is retrieval-augmented generation?",
+    "answer": "Retrieval-augmented generation (RAG) is a technique that combines information retrieval with language model generation. It retrieves relevant documents from a knowledge base and uses them as context when generating responses, reducing hallucinations.",
+    "context": "RAG systems first retrieve relevant passages from a document store using semantic search, then pass those passages as context to an LLM to generate a grounded answer."
+  },
+  {
+    "question": "How does hybrid search differ from pure semantic search?",
+    "answer": "Hybrid search combines dense vector search (semantic similarity) with sparse keyword search (lexical matching). Pure semantic search only uses vector embeddings. Hybrid search improves recall for queries with specific terms or names that semantic search might miss.",
+    "context": "Dense retrieval finds semantically similar content even with different wording. Sparse/keyword retrieval finds exact term matches. Hybrid combines both, re-ranking results for better precision and recall."
+  },
+  {
+    "question": "What is LLM-as-judge evaluation?",
+    "answer": "LLM-as-judge is an evaluation technique where a separate LLM scores the outputs of your RAG system on metrics like faithfulness, relevance, and hallucination. It scales better than human evaluation and provides consistent automated quality gates.",
+    "context": "Using a powerful LLM to evaluate responses from another LLM allows teams to run automated quality checks on every deployment without manual review of every output."
+  },
+  {
+    "question": "What is the purpose of a model gateway like LiteLLM?",
+    "answer": "A model gateway like LiteLLM provides a single API endpoint that routes requests to multiple LLM providers. It handles fallbacks, cost tracking, rate limiting, and caching — so your application code doesn't change when you switch models.",
+    "context": "LiteLLM translates between different LLM provider APIs and provides unified logging, fallback routing, and cost tracking across providers like OpenAI, Anthropic, and local Ollama models."
+  },
+  {
+    "question": "What does DVC do in an MLOps pipeline?",
+    "answer": "DVC (Data Version Control) tracks large data files and datasets using Git-like versioning. It stores the actual files in remote storage while keeping lightweight pointers in Git, enabling reproducible experiments with versioned datasets.",
+    "context": "DVC extends Git to handle large files that Git can't efficiently store. Teams can checkout specific dataset versions alongside their code, making every experiment fully reproducible."
+  }
+]

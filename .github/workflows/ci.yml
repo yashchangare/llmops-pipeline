@@ -1,0 +1,79 @@
+name: LLMOps Eval Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Pull DVC data
+        run: |
+          pip install dvc
+          dvc pull
+        env:
+          # Add your DVC remote credentials here (S3, GDrive, etc.)
+          # For local dev, skip this step
+          DVC_SKIP: "true"
+
+      - name: Start Qdrant
+        run: |
+          docker run -d -p 6333:6333 qdrant/qdrant
+          sleep 5  # wait for Qdrant to be ready
+
+      - name: Start MLflow
+        run: |
+          mlflow server --host 0.0.0.0 --port 5000 &
+          sleep 3
+
+      - name: Start LiteLLM gateway
+        run: |
+          litellm --config gateway/litellm_config.yaml --port 4000 &
+          sleep 3
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+      - name: Initialize ZenML
+        run: zenml init
+
+      - name: Run indexing pipeline
+        run: python run_pipeline.py --mode index
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPIK_API_KEY: ${{ secrets.OPIK_API_KEY }}
+          QDRANT_URL: http://localhost:6333
+          MLFLOW_TRACKING_URI: http://localhost:5000
+          LITELLM_BASE_URL: http://localhost:4000
+
+      - name: Run evaluation pipeline
+        # This step FAILS the CI if quality gates don't pass
+        # Protects main branch from regressions
+        run: python run_pipeline.py --mode eval
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPIK_API_KEY: ${{ secrets.OPIK_API_KEY }}
+          QDRANT_URL: http://localhost:6333
+          MLFLOW_TRACKING_URI: http://localhost:5000
+          LITELLM_BASE_URL: http://localhost:4000
+
+      - name: Upload MLflow artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mlflow-results
+          path: mlruns/

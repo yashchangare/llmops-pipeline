@@ -1,0 +1,35 @@
+model_list:
+  # Primary: Ollama local (free, no cost)
+  - model_name: primary
+    litellm_params:
+      model: ollama/llama3.2
+      api_base: http://localhost:11434
+      timeout: 30
+
+  # Fallback: OpenAI (kicks in if Ollama fails or times out)
+  - model_name: fallback
+    litellm_params:
+      model: gpt-4o-mini
+      api_key: os.environ/OPENAI_API_KEY
+      timeout: 20
+
+router_settings:
+  # Try Ollama first, fall back to OpenAI automatically
+  routing_strategy: simple-shuffle
+  fallbacks:
+    - primary:
+        - fallback
+
+litellm_settings:
+  # Log every request for cost tracking
+  success_callback: ["mlflow"]
+  failure_callback: ["mlflow"]
+  request_timeout: 60
+
+  # Cache repeated queries (saves cost)
+  cache: true
+  cache_params:
+    type: local
+
+general_settings:
+  master_key: sk-llmops-local-key
