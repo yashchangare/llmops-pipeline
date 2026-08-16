@@ -1,4 +1,4 @@
-# Production LLMOps Pipeline
+# LLMOps Pipeline
 RAG + Observability + Model Routing
 
 **Stack:** ZenML · LlamaIndex · Qdrant · MLflow · DVC · Opik · LiteLLM · GitHub Actions
