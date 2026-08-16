@@ -5,7 +5,7 @@ RAG + Observability + Model Routing
 
 ---
 
-## Setup (Day 1 — do this first)
+## Setup
 
 ### 1. Clone & create environment
 ```bash
