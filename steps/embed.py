@@ -1,7 +1,7 @@
 from zenml import step
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
-from llama_index.embeddings.gemini import GeminiEmbedding
+import google.generativeai as genai
 from typing import List
 import mlflow
 import os
@@ -10,16 +10,31 @@ import logging
 logger = logging.getLogger(__name__)
 
 COLLECTION = os.getenv("QDRANT_COLLECTION", "llmops_docs")
-QDRANT_URL = os.getenv("QDRANT_URL")
-QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
-EMBED_DIM = 768
+QDRANT_URL = os.getenv("QDRANT_URL", "").strip().rstrip("/")
+QDRANT_API_KEY = os.getenv("QDRANT_API_KEY", "").strip()
+EMBED_DIM = 3072
+
+
+def get_embeddings(texts: List[str]) -> List[List[float]]:
+    """Get embeddings from Google Gemini API."""
+    genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+    embeddings = []
+    for text in texts:
+        result = genai.embed_content(
+            model="models/gemini-embedding-001",
+            content=text,
+            task_type="retrieval_document",
+        )
+        embeddings.append(result["embedding"])
+    return embeddings
 
 
 @step
 def embed_and_store(chunks: List[dict]) -> int:
+    """Embed chunks with Gemini and store in Qdrant Cloud."""
     with mlflow.start_run(run_name="embed", nested=True):
 
-        client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
+        client = QdrantClient(path="data/qdrant_storage")
 
         existing = [c.name for c in client.get_collections().collections]
         if COLLECTION not in existing:
@@ -27,31 +42,24 @@ def embed_and_store(chunks: List[dict]) -> int:
                 collection_name=COLLECTION,
                 vectors_config=VectorParams(size=EMBED_DIM, distance=Distance.COSINE),
             )
-            logger.info(f"Created Qdrant collection: {COLLECTION}")
+            logger.info(f"Created collection: {COLLECTION}")
 
-        embed_model = GeminiEmbedding(
-            model_name="models/embedding-001",
-            api_key=os.getenv("GOOGLE_API_KEY"),
-        )
-
-        points = []
+        logger.info(f"Embedding {len(chunks)} chunks with Gemini...")
         texts = [c["text"] for c in chunks]
+        embeddings = get_embeddings(texts)
 
-        logger.info(f"Embedding {len(texts)} chunks...")
-        embeddings = embed_model.get_text_embedding_batch(texts, show_progress=True)
-
-        for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
-            points.append(
-                PointStruct(
-                    id=i,
-                    vector=embedding,
-                    payload={
-                        "text": chunk["text"],
-                        "source": chunk["metadata"].get("file_name", "unknown"),
-                        "chunk_id": chunk["id"],
-                    },
-                )
+        points = [
+            PointStruct(
+                id=i,
+                vector=embeddings[i],
+                payload={
+                    "text": chunks[i]["text"],
+                    "source": chunks[i]["source"],
+                    "chunk_id": chunks[i]["id"],
+                },
             )
+            for i in range(len(chunks))
+        ]
 
         client.upsert(collection_name=COLLECTION, points=points)
 

@@ -1,0 +1,15 @@
+artifact_uri: mlflow-artifacts:/616202181833411107/ec8b81f69a894c629295d4bd1d5ed3ca/artifacts
+end_time: 1782750597401
+entry_point_name: ''
+experiment_id: '616202181833411107'
+lifecycle_stage: active
+run_id: ec8b81f69a894c629295d4bd1d5ed3ca
+run_name: embed
+run_uuid: ec8b81f69a894c629295d4bd1d5ed3ca
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1782750595458
+status: 4
+tags: []
+user_id: yash

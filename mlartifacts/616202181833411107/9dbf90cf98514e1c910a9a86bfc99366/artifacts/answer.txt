@@ -1,0 +1,17 @@
+RAG is a natural language processing (NLP) system that can be used to generate text based on queries and prompts. When working with tabular data, it's important to ensure that the query and prompts are properly structured and aligned with the data. Here's how RAG can be used correctly with tabular data:
+
+1. **Query Formatting**: Ensure that the query is structured with proper headings and a clear format. This includes the name of the table, column names, and the specific query you want to execute.
+
+2. **Data Types**: Make sure that the data types are appropriate for the NLP system being used. For example, if the table is a simple CSV file, you can use the `dvc` library to automatically split the data into columns.
+
+3. **Prompt Handling**: The system should be able to handle the prompt format. If the prompt is structured correctly, the system can extract the relevant information and generate a meaningful response.
+
+4. **Re-ranking**: The system can use re-ranking techniques, such as BM25 or keyword-based search, to improve the likelihood of finding relevant information in the query.
+
+5. **Handling Different NLP Systems**: RAG can be used with various NLP systems, including LLMs, to generate responses that are human-like and accurate.
+
+6. **Data Generation**: The system can be configured to generate text based on specific questions or prompts, making it useful for tasks such as summarizing data or answering questions.
+
+7. **Cost Management**: The system can track and manage costs incurred by different models during training and deployment.
+
+By following these guidelines, you can effectively use RAG to generate high-quality text responses for your queries.

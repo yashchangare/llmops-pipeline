@@ -1,0 +1,11 @@
+Retrieval-augmented generation is the dominant architecture for production Large Language Models (LLMs). Unlike traditional ML models, LLMs are highly context-dependent, producing different outputs for the same input due to their varying behavior and learning patterns. Retrieval-augmented generation (RAG) adds a retrieval layer that must be operated separately compared to traditional search engines. This architecture employs vector indexing and retrieval to efficiently search for relevant documents based on user queries and the context stored in the data.
+
+Key differences from traditional MLOps include:
+
+1. **Prompt Engineering as Code**: Prompts are versioned, tested, and deployed.
+2. **RAG Systems**: Retrieval-Augmented Generation (RAG) adds a retrieval layer that must be operated separately.
+3. **Non-deterministic Outputs**: LLMs produce different outputs for the same input, requiring statistical evaluation.
+4. **LLM-as-Judge Evaluation**: Using powerful LLMs to score outputs from other LLMs at scale.
+5. **Model Routing**: Sending requests to different models based on cost, latency, or task type.
+
+Retrieval-augmented generation improves recall for queries with specific names, codes, or technical terms by leveraging semantic similarity and retrieval capabilities of vector databases. It also scales better than traditional search engines and can be automated in CI/CD pipelines.

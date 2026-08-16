@@ -14,12 +14,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from pipelines.rag_pipeline import indexing_pipeline, query_pipeline
+from pipelines.rag_pipeline import indexing_pipeline
 from pipelines.eval_pipeline import evaluation_pipeline
+from pipelines.rag_pipeline import run_query_pipeline
 
 # Point ZenML's MLflow integration at your local server
 os.environ["MLFLOW_TRACKING_URI"] = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000")
-
 
 def run_index():
     print("\n── Running indexing pipeline ──")
@@ -28,12 +28,11 @@ def run_index():
     indexing_pipeline(data_dir="data/raw")
     print("✓ Indexing complete. Check Qdrant dashboard: http://localhost:6333/dashboard")
 
-
 def run_query(query: str = None):
     if not query:
         query = input("\nEnter your query: ")
     print(f"\n── Running query pipeline ──\nQuery: {query}\n")
-    result = query_pipeline(query=query)
+    result = run_query_pipeline(query=query)
     print(f"\nAnswer: {result['answer']}")
     print(f"Sources: {result['sources']}")
     print(f"Model used: {result['model_used']}")

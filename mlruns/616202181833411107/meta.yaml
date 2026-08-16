@@ -1,0 +1,6 @@
+artifact_location: mlflow-artifacts:/616202181833411107
+creation_time: 1782748218809
+experiment_id: '616202181833411107'
+last_update_time: 1782748218809
+lifecycle_stage: active
+name: llmops-rag

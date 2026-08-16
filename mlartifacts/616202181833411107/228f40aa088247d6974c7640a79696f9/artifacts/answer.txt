@@ -1,0 +1,1 @@
+In an MLOps pipeline, DVC (Data Versioning) acts as a versioning tool to manage datasets. It tracks datasets like code using tools like DVC, which helps in tracking changes and ensuring consistency across different parts of the pipeline.

@@ -1,0 +1,8 @@
+The purpose of a model gateway like LiteLLM is to provide a unified API across all LLM providers, making it easier for developers to use different models and services. LiteLLM handles the following tasks:
+
+- **Routing**: Sends traffic to different models based on rules.
+- **Fallbacks**: Automatically retries with a different model on failure.
+- **Cost tracking**: Logs spend per request across providers.
+- **Caching**: Caches repeated queries to reduce latency and cost.
+
+LiteLLM is designed to simplify the integration and management of different LLM models, allowing developers to focus on their application code while LiteLLM handles the underlying infrastructure and costs associated with using multiple models.

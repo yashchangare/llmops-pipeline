@@ -1,10 +1,6 @@
 from zenml import step
 import opik
-from opik.evaluation import evaluate
-from opik.evaluation.metrics import Hallucination, AnswerRelevance, ContextRecall
-from ragas import evaluate as ragas_evaluate
-from ragas.metrics import faithfulness, answer_relevancy, context_recall
-from datasets import Dataset
+from opik.evaluation.metrics import Hallucination, AnswerRelevance, ContextPrecision
 import mlflow
 import json
 import os
@@ -15,90 +11,46 @@ logger = logging.getLogger(__name__)
 
 GOLDEN_DATASET_PATH = "evaluation/golden_dataset.json"
 
-
 def load_golden_dataset() -> List[dict]:
-    """Load ground truth Q&A pairs used as regression baseline."""
     with open(GOLDEN_DATASET_PATH) as f:
         return json.load(f)
 
 
-@step
 def evaluate_pipeline(results: List[dict]) -> dict:
-    """
-    Two-layer evaluation:
-    1. Opik — LLM-as-judge scores each response (hallucination, relevance)
-    2. RAGAS — dataset-level metrics against golden dataset
-    Both logged to MLflow so you can track quality across runs.
-    """
+    """Opik LLM-as-judge evaluation. Scores hallucination, relevance, context precision."""
     with mlflow.start_run(run_name="evaluate", nested=True):
 
-        # ── LAYER 1: Opik LLM-as-judge ──────────────────────────────────────
-        # Opik sends each response to an LLM judge and scores it 0-1
-        logger.info("Running Opik LLM-as-judge evaluation...")
+        scores = {"hallucination": [], "answer_relevance": [], "context_precision": []}
 
-        opik_dataset = [
-            opik.DatasetItem(
-                input={"query": r["query"]},
-                expected_output=r.get("expected_answer", ""),
-                metadata={"context": r.get("context", ""), "sources": r.get("sources", [])},
+        for r in results:
+            context = " ".join([c["text"] for c in r.get("context_chunks", [])])
+
+            ##-- Add your OpenAI key, Opik's LLM-as-judge uses gpt-4o by default which needs an OpenAI key. 
+            # scores["hallucination"].append(
+            #     Hallucination().score(input=r["query"], output=r["answer"], context=context).value
+            # )
+            # scores["answer_relevance"].append(
+            #     AnswerRelevance().score(input=r["query"], output=r["answer"]).value
+            # )
+            # scores["context_precision"].append(
+            #     ContextPrecision().score(input=r["query"], output=r["answer"], context=context).value
+            # )
+
+            scores["hallucination"].append(
+                Hallucination(model="ollama/qwen2.5:0.5b").score(input=r["query"], output=r["answer"], context=context).value
             )
-            for r in results
-        ]
+            scores["answer_relevance"].append(
+                AnswerRelevance(model="ollama/qwen2.5:0.5b").score(input=r["query"], output=r["answer"]).value
+            )
+            scores["context_precision"].append(
+                ContextPrecision(model="ollama/qwen2.5:0.5b").score(input=r["query"], output=r["answer"], context=context).value
+            )
 
-        opik_results = evaluate(
-            dataset=opik_dataset,
-            task=lambda x: {"output": x["query"]},  # plug in your generate step here
-            scoring_metrics=[
-                Hallucination(),     # did the model make things up?
-                AnswerRelevance(),   # is the answer relevant to the question?
-                ContextRecall(),     # did it use the context correctly?
-            ],
-            project_name=os.getenv("OPIK_PROJECT_NAME", "llmops-pipeline"),
-        )
+        final_scores = {k: round(sum(v) / len(v), 3) for k, v in scores.items() if v}
 
-        avg_hallucination = opik_results.get("hallucination_score", 0)
-        avg_relevance = opik_results.get("answer_relevance_score", 0)
+        for metric, score in final_scores.items():
+            mlflow.log_metric(f"opik_{metric}", score)
 
-        mlflow.log_metric("opik_hallucination_score", avg_hallucination)
-        mlflow.log_metric("opik_answer_relevance", avg_relevance)
-        logger.info(f"Opik scores — Hallucination: {avg_hallucination:.3f}, Relevance: {avg_relevance:.3f}")
-
-        # ── LAYER 2: RAGAS dataset-level metrics ────────────────────────────
-        # RAGAS evaluates at the dataset level against your golden dataset
-        logger.info("Running RAGAS evaluation against golden dataset...")
-
-        golden = load_golden_dataset()
-
-        ragas_data = Dataset.from_list([
-            {
-                "question": g["question"],
-                "answer": next(
-                    (r["answer"] for r in results if r["query"] == g["question"]),
-                    ""
-                ),
-                "contexts": [g["context"]],
-                "ground_truth": g["answer"],
-            }
-            for g in golden
-        ])
-
-        ragas_scores = ragas_evaluate(
-            ragas_data,
-            metrics=[faithfulness, answer_relevancy, context_recall],
-        )
-
-        mlflow.log_metric("ragas_faithfulness", float(ragas_scores["faithfulness"]))
-        mlflow.log_metric("ragas_answer_relevancy", float(ragas_scores["answer_relevancy"]))
-        mlflow.log_metric("ragas_context_recall", float(ragas_scores["context_recall"]))
-
-        logger.info(f"RAGAS scores — {ragas_scores}")
-
-        final_scores = {
-            "opik_hallucination": avg_hallucination,
-            "opik_relevance": avg_relevance,
-            "ragas_faithfulness": float(ragas_scores["faithfulness"]),
-            "ragas_answer_relevancy": float(ragas_scores["answer_relevancy"]),
-            "ragas_context_recall": float(ragas_scores["context_recall"]),
-        }
+        logger.info(f"Evaluation scores: {final_scores}")
 
     return final_scores

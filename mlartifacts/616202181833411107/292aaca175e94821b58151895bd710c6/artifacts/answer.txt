@@ -1,0 +1,1 @@
+Retrieval-augmented generation (RAG) is a dominant architecture for production large language models (LLMs). It combines dense retrieval with BM25 or keyword-based search to improve recall for queries with specific names, codes, or technical terms. This enhances the accuracy and relevance of the model's responses.

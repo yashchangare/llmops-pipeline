@@ -1,75 +1,69 @@
 from zenml import step
-from openai import OpenAI  # LiteLLM is OpenAI-compatible, same client
-import opik
-from opik.integrations.openai import track_openai
+import google.generativeai as genai
+from dotenv import load_dotenv
 from typing import List
+import mlflow
 import os
 import logging
 
+import opik
+
+load_dotenv()
 logger = logging.getLogger(__name__)
 
-# Point OpenAI client at LiteLLM gateway instead of OpenAI directly
-# LiteLLM handles routing to Ollama or OpenAI based on litellm_config.yaml
-client = OpenAI(
-    base_url=os.getenv("LITELLM_BASE_URL", "http://localhost:4000"),
-    api_key="sk-llmops-local-key",  # matches master_key in litellm_config.yaml
-)
+import requests
 
-# Wrap client with Opik — this is all you need for full tracing
-# Every call now appears in Opik dashboard automatically
-client = track_openai(client)
-
-# Initialize Opik project
-opik.configure(
-    api_key=os.getenv("OPIK_API_KEY"),
-    project_name=os.getenv("OPIK_PROJECT_NAME", "llmops-pipeline"),
-)
-
-
-@opik.track(name="rag_generate")  # decorator creates a trace in Opik
 @step
 def generate_answer(query: str, context_chunks: List[dict]) -> dict:
-    """
-    Generate answer using retrieved context, routed through LiteLLM.
-    Opik traces every call: prompt, response, token count, latency, model used.
-    """
-    # Build context string from retrieved chunks
     context = "\n\n---\n\n".join([c["text"] for c in context_chunks])
     sources = list(set([c["source"] for c in context_chunks]))
 
-    system_prompt = """You are a helpful assistant. Answer the question using ONLY 
-the provided context. If the answer is not in the context, say so clearly.
-Do not make up information."""
+    prompt = f"""Answer using ONLY the context below.
 
-    user_prompt = f"""Context:
+Context:
 {context}
 
 Question: {query}
 
 Answer:"""
 
-    logger.info(f"Generating answer for: '{query[:50]}...'")
-
-    response = client.chat.completions.create(
-        model="primary",  # LiteLLM routes this to Ollama, falls back to OpenAI
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        temperature=0.1,  # low temp for factual RAG
-        max_tokens=512,
+    response = requests.post(
+        "http://localhost:11434/api/generate",
+        json={
+            "model": "qwen2.5:0.5b",
+            "prompt": prompt,
+            "stream": False,
+        }
     )
 
-    answer = response.choices[0].message.content
-    model_used = response.model
+    answer = response.json()["response"]
+    logger.info(f"Answer generated for: '{query[:50]}'")
 
-    logger.info(f"Answer generated using model: {model_used}")
+    # Manual Opik trace
+    opik_client = opik.Opik()
+    trace = opik_client.trace(
+        name="rag_generate",
+        input={"query": query, "context_chunks_count": len(context_chunks)},
+        output={"answer": answer, "sources": sources},
+        metadata={"model": "qwen2.5:0.5b"},
+    )
+    trace.end()
+
+    with mlflow.start_run(run_name="generate", nested=True):
+        mlflow.log_param("model", "qwen2.5:0.5b")
+        mlflow.log_metric("context_chunks_used", len(context_chunks))
+        mlflow.log_param("query", query)
+        mlflow.log_param("sources_used", str(sources))
+        mlflow.log_text(
+            "\n\n---\n\n".join([f"Source: {c['source']}\n{c['text']}" for c in context_chunks]),
+            "retrieved_chunks.txt"
+        )
+        mlflow.log_text(answer, "answer.txt")
 
     return {
         "query": query,
         "answer": answer,
         "sources": sources,
-        "model_used": model_used,
-        "prompt_tokens": response.usage.prompt_tokens,
-        "completion_tokens": response.usage.completion_tokens,
+        "model_used": "qwen2.5:0.5b",
+        "context_chunks": context_chunks,
     }
